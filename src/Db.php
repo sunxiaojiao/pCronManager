@@ -1,5 +1,6 @@
 <?php
 namespace PCronManager;
+error_reporting(E_ALL & ~E_NOTICE &~E_WARNING);
 use \PDO;
 
 class Db {
@@ -13,19 +14,20 @@ class Db {
 	}
 
 	private function connect () {
-		if ($this->db) return $this->db;
+		$dbConfigs = Config::get('db');
 
-		$dbConfig = Config::get('db');
+		$dbConfig = $dbConfigs[$dbConfigs['db_type']];
 
-		if ($dbConfig['db_type'] === 'mysql') {
-			$connConfig = $dbConfig['mysql'];
-			$options = [];
-			$this->db = new PDO("mysql:dbname={$connConfig['database']};host={$connConfig['host']};port={$connConfig['port']}", $connConfig['user'], $connConfig['password'], $options);
-			return $this->db;
-		} 
-	
-		throw new \Exception('no available db config');
-		
+		if (empty($dbConfig)) throw new \Exception('no available db config');
+
+		$dbConfig['db_type'] = $dbConfigs['db_type'];
+
+		$options = [	
+			PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+		];
+
+		return $this->db = $this->createPdoConnection($dbConfig, $options);
 	}
 
 	public static function instance () {
@@ -33,35 +35,38 @@ class Db {
 		return self::$instance =  new Db();
 	}
 
-	private function prepareSql ($sql, array $params) {
+	private function prepareAndSendSql ($sql, array $params) {
 		Logger::log($sql);
-		$stmt = $this->db->prepare($sql);
 
-		$i = 1;
-		foreach ($params as &$value) {
-			$type = PDO::PARAM_STR;
-			if (is_numeric($value)) $type = PDO::PARAM_INT;
-			$stmt->bindParam($i++, $value, $type);
-		}
+		$count = 3;
+		do {
+			$count--;
+			try {
+				$stmt = $this->executeSql($sql, $params);
+				$count = 0;
+			} catch (\PDOException $e) {
+				Logger::log($e->getMessage());
+				if ($this->isLostConnection($e)) {
+					$this->connect();
+				} else {
+					throw $e;
+				}
+			}
 
-		$flag = $stmt->execute();
-		if ($flag === false) {
-			$errorInfo = $stmt->errorInfo();
-			throw new \Exception($errorInfo[0] . $errorInfo[1] . $errorInfo[2]);
-		}
-
+		} while ($count > 0);
+		
 		return $stmt;
 	}
 
 	public  function getData($sql, $params = []) {
-		$stmt = $this->prepareSql($sql, $params);
-		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$stmt = $this->prepareAndSendSql($sql, $params);
+		return $stmt->fetchAll();
 	}
 
 	public function getRow ($sql, $params = []) {
 		$sql .= ' limit 1';
-		$stmt = $this->prepareSql($sql, $params);
-		return $stmt->fetch(PDO::FETCH_ASSOC);
+		$stmt = $this->prepareAndSendSql($sql, $params);
+		return $stmt->fetch();
 	}
 
 	public function insert ($tableName, $params) {
@@ -76,8 +81,9 @@ class Db {
 		$values = implode(',', $values);
 
 		$sql .= "({$keys}) values ({$values})";
-
-		$stmt = $this->prepareSql($sql, $params);
+		
+		$stmt = $this->prepareAndSendSql($sql, $params);
+		
 		return $this->db->lastInsertId();
 	}
 
@@ -92,7 +98,9 @@ class Db {
 		$sql .= $kv;
 
 		$sql .= ' where ' .$this->whereSql($wheres);
-		$stmt = $this->prepareSql($sql, []);
+		
+		$stmt = $this->prepareAndSendSql($sql, []);	
+		
 		return $stmt->rowCount();
 	}
 
@@ -106,7 +114,7 @@ class Db {
 	}
 
 	public function query ($sql, $params = []) {
-		$stmt = $this->prepareSql($sql, $params);
+		$stmt = $this->prepareAndSendSql($sql, $params);
 		return $stmt;
 	}
 
@@ -129,6 +137,46 @@ class Db {
 
 	private function __clone () {
 
+	}
+
+	private function createPdoConnection ($dbConfig, $options) {
+		if ($dbConfig['db_type'] !== 'mysql') throw new \Exception("目前仅支持mysql");
+		
+		return new PDO(
+			"mysql:dbname={$dbConfig['database']};host={$dbConfig['host']};port={$dbConfig['port']}", 
+			$dbConfig['user'], 
+			$dbConfig['password'], 
+			$options
+		);
+	}
+
+	private function prepare ($sql, array $params) {
+		$stmt = $this->db->prepare($sql);
+
+		$i = 1;
+		foreach ($params as &$value) {
+			$type = PDO::PARAM_STR;
+			if (is_numeric($value)) $type = PDO::PARAM_INT;
+			$stmt->bindParam($i++, $value, $type);
+		}
+
+		return $stmt;
+	}
+
+	/**
+	 * 是否连接已经断开
+	 * @param  [Exception]  $exception 
+	 * @return boolean
+	 */
+	private function isLostConnection ($exception) {
+		$message = $exception->getMessage();
+		return strpos($message, 'server has gone away') !== false;
+	}
+
+	private function executeSql ($sql, array $params) {
+		$stmt = $this->prepare($sql, $params);
+		$stmt->execute();
+		return $stmt;
 	}
 
 }
