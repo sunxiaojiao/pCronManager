@@ -2,6 +2,7 @@
 
 namespace App\Admin\Controllers;
 
+use App\Admin\Extensions\ViewJobLog;
 use App\Models\Job;
 use App\Http\Controllers\Controller;
 use Encore\Admin\Controllers\HasResourceActions;
@@ -89,9 +90,12 @@ class JobController extends Controller
         $grid->cron('Cron');
         $grid->output('Output');
         $grid->max_concurrence('Max concurrence');
-        $grid->status('Status')->display(function ($status) {
-            return $status ? '启用' : '关闭';
-        });
+        // 状态
+        $states = [
+            'on'  => ['value' => 1, 'text' => '打开', 'color' => 'primary'],
+            'off' => ['value' => 0, 'text' => '关闭', 'color' => 'default'],
+        ];
+        $grid->column('status')->switch($states);
         $grid->create_time('Create time');
         $grid->update_time('Update time');
         $grid->last_run_time('Last run time')->sortable();
@@ -100,6 +104,12 @@ class JobController extends Controller
             // 设置created_at字段的范围查询
             $filter->between('created_at', 'Created Time')->datetime();
         });
+
+        $grid->actions(function ($actions) {
+            $actions->append(new ViewJobLog($actions->getKey()));
+        });
+
+
 
         return $grid;
     }
