@@ -11,6 +11,7 @@ Route::group([
 ], function (Router $router) {
 
     $router->get('/', 'HomeController@index');
+    $router->get('/jobs/{id}/copy', 'JobController@copy');
     $router->resource('jobs', JobController::class);
     $router->resource('vars', VarsController::class);
     $router->resource('logs', LogController::class);

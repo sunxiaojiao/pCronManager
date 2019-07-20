@@ -2,14 +2,16 @@
 
 namespace App\Admin\Controllers;
 
+use App\Admin\Extensions\CopyJob;
 use App\Admin\Extensions\ViewJobLog;
 use App\Models\Job;
 use App\Http\Controllers\Controller;
 use Encore\Admin\Controllers\HasResourceActions;
-use Encore\Admin\Form;
 use Encore\Admin\Grid;
 use Encore\Admin\Layout\Content;
 use Encore\Admin\Show;
+use Illuminate\Support\Carbon;
+use App\Admin\Form;
 
 class JobController extends Controller
 {
@@ -88,7 +90,7 @@ class JobController extends Controller
         $grid->column('tag.name', 'tag Name');
         $grid->server_id('Server id')->sortable();
         $grid->cron('Cron');
-        $grid->output('Output');
+//        $grid->output('Output');
         $grid->max_concurrence('Max concurrence');
         // 状态
         $states = [
@@ -107,6 +109,7 @@ class JobController extends Controller
 
         $grid->actions(function ($actions) {
             $actions->append(new ViewJobLog($actions->getKey()));
+            $actions->append(new CopyJob($actions->getKey()));
         });
 
 
@@ -173,5 +176,18 @@ class JobController extends Controller
         });
 
         return $form;
+    }
+
+    /**
+     * @param $id
+     * @param Content $content
+     * @return Content
+     */
+    public function copy($id, Content $content)
+    {
+        return $content
+            ->header('Copy')
+            ->description('copy')
+            ->body($this->form()->copy($id));
     }
 }
