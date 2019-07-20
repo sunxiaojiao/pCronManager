@@ -21,7 +21,7 @@ class Scheduler {
 		
 		return array_map(function ($job) {
 
-			return new Job($job['id'], $job['command'], $job['cron'] , $job['max_concurrence']);
+			return new Job($job);
 
 		}, $jobs);
 	}

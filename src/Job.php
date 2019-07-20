@@ -20,20 +20,24 @@ class Job {
 
 	private $container;
 
+	private $output = '';
 
-	public function __construct ($commandId , $commandWithArgs, $cronExpression, $maxConcurrenceCount = 1) {
+
+	public function __construct ($job) {
 		$this->container = Container::instance();
 
 		$this->uniqId = intval(microtime(true) * 1000) . mt_rand(1, 1000);	
 
 		$this->server = Server::instance();
 
-		$this->oldCommandWithArgs = $commandWithArgs;
-		$this->commandWithArgs = $this->server->matchVars($commandWithArgs);
+		$this->oldCommandWithArgs = $job['command'];
+		$this->commandWithArgs = $this->server->matchVars($this->oldCommandWithArgs);
 
-		$this->commandId = $commandId;
-		$this->cronExpression = $cronExpression;
-		$this->maxConcurrenceCount = $maxConcurrenceCount;
+		$this->commandId = $job['id'];
+		$this->cronExpression = $job['cron'];
+		$this->maxConcurrenceCount = is_numeric($job['max_concurrence']) ? intval($job['max_concurrence']): 1;
+
+		$this->output = $job['output'];
 	}
 
 	public function isRunning () {
@@ -79,9 +83,11 @@ class Job {
 
         $logPid          = Config::get('php') . ' ' . SRC_PATH . "/run.php  --type=pid       --uniqId={$this->uniqId} --pid=";
         $logAfterCommand = Config::get('php') . ' ' . SRC_PATH . "/run.php  --type=afterExec --uniqId={$this->uniqId} --startTime=" . time();
+        $finalCommand = $this->commandWithArgs;
+        if ($this->output) $finalCommand .= " >> {$this->output}";
 
         $command = <<<EOT
-        {$this->commandWithArgs} &
+        {$finalCommand} &
         {$logPid}$!
         wait
         {$logAfterCommand}
