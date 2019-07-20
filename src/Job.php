@@ -26,7 +26,7 @@ class Job {
 
 		$this->uniqId = intval(microtime(true) * 1000) . mt_rand(1, 1000);	
 
-		$this->server = new Server();
+		$this->server = Server::instance();
 
 		$this->oldCommandWithArgs = $commandWithArgs;
 		$this->commandWithArgs = $this->server->matchVars($commandWithArgs);
@@ -76,8 +76,18 @@ class Job {
 	 * 后台异步运行
 	 */
 	public function runInBackground () {
-		$command = Config::get('php') . ' ' . SRC_PATH . "/run.php --commandId={$this->commandId} --uniqId={$this->uniqId}";
-		var_dump($command);
+
+        $logPid          = Config::get('php') . ' ' . SRC_PATH . "/run.php  --type=pid       --uniqId={$this->uniqId} --pid=";
+        $logAfterCommand = Config::get('php') . ' ' . SRC_PATH . "/run.php  --type=afterExec --uniqId={$this->uniqId} --startTime=" . time();
+
+        $command = <<<EOT
+        {$this->commandWithArgs} &
+        {$logPid}$!
+        wait
+        {$logAfterCommand}
+EOT;
+
+//		var_dump($command);
 		$this->process = new Process($command);
 
 		$this->process->syncRun();

@@ -8,7 +8,7 @@ class Logger {
 		return error_log($message . PHP_EOL, 3, INSTALL_PATH . '/log.log');	
 	}
 
-	public static function logJob ($job) {
+	public static function logJob (Job $job) {
 
 		$params = [
 			'command_id'   => $job->commandId,
@@ -30,4 +30,8 @@ class Logger {
 		$logsModel = new DataModels\LogsModel();
 		return $logsModel->update($uniqId, $params);
 	}
+
+	public static function updatePid ($uniqId, $pid) {
+        return static::updateJobLog($uniqId, ['pid' => $pid]);
+    }
 }

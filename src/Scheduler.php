@@ -12,7 +12,7 @@ class Scheduler {
 	private $server;
 
 	public function __construct () {
-		$this->server = new Server();
+		$this->server = Server::instance();
 	}
 
 	public function getJobs () {

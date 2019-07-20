@@ -9,7 +9,9 @@ class Server {
 
 	private $vars;
 
-	public function __construct ($serverId = 0, $ip = '') {
+	private static $instance;
+
+	private function __construct ($ip = '') {
 		$this->id = Config::get('serverId');
 
 		$this->ip = $ip;
@@ -17,6 +19,11 @@ class Server {
 		$this->vars = $this->getVars();
 
 	}
+
+	public static function instance () {
+	    if (static::$instance) return static::$instance;
+	    return static::$instance = new static();
+    }
 
 	private function getVars () {
 		$model = new DataModels\VarsModel();

@@ -36,7 +36,7 @@ class Process {
 		// proc_open 使用 sh -c 运行脚本，会新开一个进程用于运行指定脚本
 		// 添加exec可以迫使其不新开进程，而在原进程中运行，并保持pid一致
 		// see https://php.net/manual/en/function.proc-get-status.php#93382
-		$this->process = proc_open('exec ' . $this->command, $this->getDescriptor(), $this->pipes);
+		$this->process = proc_open($this->command, $this->getDescriptor(), $this->pipes);
 
 		if (!is_resource($this->process)) {
 			throw new ProcOpenFailedException('');
